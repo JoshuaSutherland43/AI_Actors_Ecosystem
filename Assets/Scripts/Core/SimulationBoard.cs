@@ -69,10 +69,12 @@ public class SimulationBoard : MonoBehaviour
     public bool IsPaused => !_running;
     public float Speed => _speed;
     public bool IsAcidRainActive => _manualRainBrushActive || _acidRainTicksRemaining > 0;
-    public int TicksUntilAcidRain => 0;
-    public float SecondsUntilAcidRain => 0f;
-    public float SecondsRemainingInAcidRain => IsAcidRainActive && config != null ? Mathf.Max(0f, config.tickInterval) : 0f;
-    public bool IsAcidRainImminent => false;
+    public int TicksUntilAcidRain => IsAcidRainActive ? 0 : Mathf.Max(0, _acidRainCycleTicksRemaining);
+    public float SecondsUntilAcidRain => config == null ? 0f : TicksUntilAcidRain * config.tickInterval / Mathf.Max(0.01f, _speed);
+    public float SecondsRemainingInAcidRain => config == null
+        ? 0f
+        : (_manualRainBrushActive ? config.tickInterval : _acidRainTicksRemaining * config.tickInterval / Mathf.Max(0.01f, _speed));
+    public bool IsAcidRainImminent => config != null && config.enableAcidRain && !IsAcidRainActive && TicksUntilAcidRain <= config.acidRainWarningTicks;
     public bool IsLandDestroyed => _isLandDestroyed;
 
     // ── Events ────────────────────────────────────
@@ -325,9 +327,31 @@ public class SimulationBoard : MonoBehaviour
 
     private void AdvanceAcidRainCycle()
     {
-        _acidRainTicksRemaining = 0;
-        _acidRainCycleTicksRemaining = 0;
-        _acidRainFrontActive = false;
+        if (config == null || !config.enableAcidRain) return;
+
+        if (_acidRainTicksRemaining > 0)
+        {
+            _acidRainTicksRemaining--;
+            if (_acidRainTicksRemaining <= 0)
+            {
+                _acidRainCycleTicksRemaining = Mathf.Max(1, config.acidRainCycleTicks);
+                _lastRainEndRealtime = Time.realtimeSinceStartup;
+                _acidRainFrontActive = false;
+            }
+            return;
+        }
+
+        if (_acidRainCycleTicksRemaining <= Mathf.Max(1, config.acidRainWarningTicks))
+            EnsureInfectedShelteredBeforeRain();
+
+        _acidRainCycleTicksRemaining--;
+        if (_acidRainCycleTicksRemaining <= 0)
+        {
+            EnsureInfectedShelteredBeforeRain();
+            _acidRainTicksRemaining = Mathf.Max(1, config.acidRainDurationTicks);
+            _acidRainCycleTicksRemaining = 0;
+            BeginAcidRainFront();
+        }
     }
 
     private void BeginAcidRainFront()

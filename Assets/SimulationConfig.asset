@@ -12,25 +12,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 85638ca2f401ea147a1ff3f53fdbd321, type: 3}
   m_Name: SimulationConfig
   m_EditorClassIdentifier: Assembly-CSharp::SimulationConfig
-  gridWidth: 60
-  gridHeight: 40
+  gridWidth: 70
+  gridHeight: 50
   tileSize: 0.5
   initialHerbivoreCount: 44
   maxHerbivores: 130
   forceBrightYellowHerbivores: 1
   herbivoreSizeMultiplier: 1.45
-  fungusTileDurationTicks: 520
+  fungusTileDurationTicks: 700
   deathFungusRadius: 2
-  fungusSpreadChance: 0.0018
-  fungusStrategicSpreadAttempts: 2
-  fungusStrategicSearchRadius: 3
+  fungusSpreadChance: 0.01
+  fungusStrategicSpreadAttempts: 4
+  fungusStrategicSearchRadius: 6
   fungusHerdAttractionWeight: 0.65
   initialFungusPatches: 1
   fungusBiomassThreshold: 1
   fungusStarvationTtlPenalty: 3
-  fungusStarvationGraceFraction: 0.35
-  fungusSpreadEventsPerTile: 8
+  fungusStarvationGraceFraction: 0.16
+  fungusSpreadEventsPerTile: 2
   infectionChancePerTick: 0.006
+  proximityInfectionChancePerTick: 0.0035
+  proximityInfectionRadiusMultiplier: 0.427
   infectionAuraRadius: 3.5
   infectionDeathTicks: 620
   baseSpeed: 1.2
@@ -43,7 +45,7 @@ MonoBehaviour:
   rainRecoveryDelaySeconds: 10
   deadSoilRecoveryDelayTicks: 280
   quadtreeCapacity: 4
-  quadtreeMaxDepth: 8
+  quadtreeMaxDepth: 6
   tickInterval: 0.05
   enableBreeding: 1
   breedingBaseChancePerTick: 0.06
@@ -52,11 +54,11 @@ MonoBehaviour:
   breedingCooldownTicks: 120
   breedingMaxHunger: 65
   maxBirthsPerTick: 5
-  shelterClusterCount: 6
+  shelterClusterCount: 5
   shelterClusterRadius: 3
-  initialShelterResidents: 10
+  initialShelterResidents: 8
   enableAcidRain: 1
-  acidRainCycleTicks: 1400
+  acidRainCycleTicks: 6000
   acidRainDurationTicks: 320
   acidRainWarningTicks: 260
   acidRainEarlyAwarenessChance: 0.12

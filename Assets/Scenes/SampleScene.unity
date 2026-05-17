@@ -157,14 +157,20 @@ MonoBehaviour:
   labelQTNodes: {fileID: 0}
   labelQTDepth: {fileID: 0}
   labelQTSaved: {fileID: 0}
+  labelAcidTimer: {fileID: 0}
+  labelPhase: {fileID: 0}
   labelGrass: {fileID: 0}
   labelFungus: {fileID: 0}
   labelDead_soil: {fileID: 0}
+  labelShelter: {fileID: 0}
+  labelAcidSoil: {fileID: 0}
+  labelFertileSoil: {fileID: 0}
   selectedPanel: {fileID: 0}
   selectedInfo: {fileID: 0}
   legendText: {fileID: 0}
   speedSlider: {fileID: 0}
   speedLabel: {fileID: 0}
+  lecturerInfo: {fileID: 0}
 --- !u!4 &454741310
 Transform:
   m_ObjectHideFlags: 0
@@ -384,6 +390,10 @@ MonoBehaviour:
   showQuadtree: 1
   showPaths: 0
   depthColor: 1
+  showSceneStatsOverlay: 1
+  showDecisionTreeOverlay: 1
+  developerFungusBrushRadiusTiles: 1
+  developerRainBrushRadiusTiles: 2
   OnAgentSelected:
     m_PersistentCalls:
       m_Calls: []
@@ -421,7 +431,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &619394801
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -747,7 +757,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!212 &1513221782
 SpriteRenderer:
   serializedVersion: 2

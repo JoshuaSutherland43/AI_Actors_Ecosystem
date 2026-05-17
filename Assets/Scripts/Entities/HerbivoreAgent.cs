@@ -173,6 +173,7 @@ public class HerbivoreAgent : MonoBehaviour
         var nearby = qt.QueryRadius(Position, _config.infectionAuraRadius * 2f, totalCount, ref saved);
         LastSavedCandidates = saved;
         NearbyCount = nearby.Count;
+        TryProximityInfection(nearby);
 
         // ── State machine ────────────────────────
         UpdateState(nearby);
@@ -180,11 +181,17 @@ public class HerbivoreAgent : MonoBehaviour
 
         // ── Steering ─────────────────────────────
         Vector2 force = ComputeSteering(nearby);
+        if (force.sqrMagnitude < 0.0001f)
+            force = Wander();
 
         float speed = _config.baseSpeed;
         if (IsInfected)
             speed *= InfectionProgress < 0.7f ? _config.infectedSpeedMultiplier : _config.dyingSpeedMultiplier;
-        _velocity = Vector2.Lerp(_velocity, force.normalized * speed, Time.deltaTime * _config.steeringSmoothing);
+        Vector2 desiredVelocity = force.normalized * speed;
+        _velocity = Vector2.Lerp(_velocity, desiredVelocity, Time.deltaTime * _config.steeringSmoothing);
+        Vector2 edgeDeflection = AvoidBoardEdges();
+        if (edgeDeflection.sqrMagnitude > 0.0001f)
+            _velocity = Vector2.Lerp(_velocity, (_velocity + edgeDeflection.normalized * speed).normalized * speed, 0.65f);
 
         // Clamp to board
         Vector2 nextPos = Position + _velocity * _config.tickInterval;
@@ -192,7 +199,11 @@ public class HerbivoreAgent : MonoBehaviour
         {
             Vector2 boardCenter = (Vector2)_grid.transform.position;
             _velocity = (boardCenter - Position).normalized * speed;
-            nextPos = Position + _velocity * _config.tickInterval;
+            nextPos = ClampInsideBoard(Position + _velocity * _config.tickInterval);
+        }
+        else
+        {
+            nextPos = ClampInsideBoard(nextPos);
         }
 
         transform.position = (Vector3)nextPos;
@@ -421,6 +432,13 @@ public class HerbivoreAgent : MonoBehaviour
                 break;
         }
 
+        force += AvoidBoardEdges() * (IsInfected ? 0.9f : 1.8f);
+        if (!IsInfected)
+        {
+            force += AvoidLocalHazards(nearby) * 1.6f;
+            force = RefineHealthyRoute(force, nearby);
+        }
+
         return force;
     }
 
@@ -501,7 +519,7 @@ public class HerbivoreAgent : MonoBehaviour
 
     private Vector2 InfectedHerdSteering(List<HerbivoreAgent> nearby)
     {
-        // Move together with other infected and orbit active fungal regions to trap healthy herds.
+        // Move together with infected peers and take interception lines that pressure healthy groups into fungal zones.
         Vector2 center = Vector2.zero;
         int count = 0;
         foreach (var n in nearby)
@@ -511,28 +529,306 @@ public class HerbivoreAgent : MonoBehaviour
             count++;
         }
         Vector2 cohesion = count > 0 ? (center / count - Position).normalized : Vector2.zero;
-        Vector2 fungusBias = SeekFungus() * 1.1f;
-        Vector2 intercept = CorralHealthy(nearby) * 1.35f;
-        return cohesion * 1.35f + fungusBias + intercept + Wander() * 0.2f;
+        Vector2 fungusBias = SeekFungus();
+        Vector2 intercept = CorralHealthy(nearby) * 1.55f;
+        Vector2 containment = BuildContainmentArc(nearby) * 1.2f;
+        float fungusBiasScale = CountNearbyHealthy(nearby) > 0 ? 1.4f : 0.85f;
+        return cohesion * 1.2f + fungusBias * fungusBiasScale + intercept + containment + Wander() * 0.12f;
     }
 
     private Vector2 CorralHealthy(List<HerbivoreAgent> nearby)
     {
-        // Infected herd steers toward healthy animals and angles pushes toward fungus clusters.
+        // Infected units prefer moving to "behind" healthy targets relative to nearby fungus, creating better funneling.
         Vector2 toward = Vector2.zero;
-        int count = 0;
+        float weightSum = 0f;
         foreach (var n in nearby)
         {
             if (n == this || n.IsInfected || n.IsDead) continue;
-            Vector2 toHealthy = (n.Position - Position).normalized;
-            Vector2 fungusNearHealthy = _grid.NearestFungusWorld(n.Position, 6);
-            Vector2 pushTowardFungus = (fungusNearHealthy - n.Position).sqrMagnitude > 0.0001f
+
+            Vector2 toHealthyVector = n.Position - Position;
+            float dist = Mathf.Max(0.001f, toHealthyVector.magnitude);
+            Vector2 toHealthy = toHealthyVector / dist;
+
+            Vector2 fungusNearHealthy = _grid.NearestFungusWorld(n.Position, 10);
+            bool hasFungusAnchor = (fungusNearHealthy - n.Position).sqrMagnitude > _config.tileSize * _config.tileSize * 0.25f;
+            Vector2 pushTowardFungus = hasFungusAnchor
                 ? (fungusNearHealthy - n.Position).normalized
-                : Vector2.zero;
-            toward += (toHealthy * 1.2f) + (pushTowardFungus * 0.9f);
+                : toHealthy;
+
+            Vector2 stagingPoint = n.Position - pushTowardFungus * Mathf.Lerp(0.9f, 1.8f, Mathf.Clamp01(Personality.corralVulnerability / 2.5f));
+            Vector2 interceptDir = (stagingPoint - Position).sqrMagnitude > 0.0001f
+                ? (stagingPoint - Position).normalized
+                : toHealthy;
+
+            float herdWeight = Mathf.Lerp(0.85f, 1.35f, Mathf.Clamp01(n.Personality.corralVulnerability / 2.5f));
+            float distWeight = 1f / (1f + dist);
+            float weight = herdWeight * distWeight;
+
+            toward += ((interceptDir * 1.55f) + (pushTowardFungus * (hasFungusAnchor ? 1.25f : 0.55f)) + (toHealthy * 0.35f)) * weight;
+            weightSum += weight;
+        }
+        return weightSum > 0f ? toward / weightSum : Vector2.zero;
+    }
+
+    private int CountNearbyHealthy(List<HerbivoreAgent> nearby)
+    {
+        int count = 0;
+        foreach (var n in nearby)
+        {
+            if (n == null || n == this || n.IsDead || n.IsInfected) continue;
             count++;
         }
-        return count > 0 ? toward / count : Vector2.zero;
+        return count;
+    }
+
+    private Vector2 BuildContainmentArc(List<HerbivoreAgent> nearby)
+    {
+        Vector2 healthyCenter = Vector2.zero;
+        int healthyCount = 0;
+        foreach (var n in nearby)
+        {
+            if (n == null || n == this || n.IsDead || n.IsInfected) continue;
+            healthyCenter += n.Position;
+            healthyCount++;
+        }
+
+        if (healthyCount == 0) return Vector2.zero;
+        healthyCenter /= healthyCount;
+
+        Vector2 fungusAnchor = _grid.NearestFungusWorld(healthyCenter, 12);
+        if ((fungusAnchor - healthyCenter).sqrMagnitude < _config.tileSize * _config.tileSize * 0.25f)
+            return Vector2.zero;
+
+        Vector2 funnelDir = (fungusAnchor - healthyCenter).normalized;
+        Vector2 arcPoint = healthyCenter - funnelDir * 1.4f;
+        Vector2 toArc = arcPoint - Position;
+        return toArc.sqrMagnitude > 0.0001f ? toArc.normalized : Vector2.zero;
+    }
+
+    private void TryProximityInfection(List<HerbivoreAgent> nearby)
+    {
+        if (IsInfected || IsDead || nearby == null || nearby.Count == 0) return;
+
+        float radiusMultiplier = Mathf.Max(0.1f, _config.proximityInfectionRadiusMultiplier);
+        float infectionRadius = Mathf.Max(_config.tileSize * 0.75f, _config.infectionAuraRadius * radiusMultiplier);
+        float radiusSq = infectionRadius * infectionRadius;
+        float pressure = 0f;
+        int closeInfected = 0;
+
+        foreach (var n in nearby)
+        {
+            if (n == null || n == this || n.IsDead || !n.IsInfected) continue;
+
+            float d2 = (n.Position - Position).sqrMagnitude;
+            if (d2 > radiusSq) continue;
+
+            closeInfected++;
+            float dist = Mathf.Sqrt(d2);
+            float closeness = 1f - Mathf.Clamp01(dist / infectionRadius);
+            float herdBonus = n.State == HerbivoreState.Infected_Herding ? 1.35f : 1f;
+            pressure += closeness * herdBonus;
+        }
+
+        if (closeInfected == 0) return;
+
+        float susceptibility = Mathf.Clamp(Personality.infectionSusceptibility, 0.2f, 3f);
+        float baseChance = Mathf.Clamp01(_config.proximityInfectionChancePerTick * susceptibility);
+        float chance = 1f - Mathf.Pow(1f - baseChance, Mathf.Max(1f, pressure));
+        if (Random.value < chance)
+        {
+            Infect();
+            _lastDecisionReason = "Infected by close contact with infected herd pressure.";
+        }
+    }
+
+    private Vector2 AvoidLocalHazards(List<HerbivoreAgent> nearby)
+    {
+        Vector2 avoidance = Vector2.zero;
+
+        _grid.WorldToGrid(Position, out int cx, out int cy);
+        for (int dx = -2; dx <= 2; dx++)
+        {
+            for (int dy = -2; dy <= 2; dy++)
+            {
+                if (dx == 0 && dy == 0) continue;
+                int gx = cx + dx;
+                int gy = cy + dy;
+                if (gx < 0 || gx >= _grid.Width || gy < 0 || gy >= _grid.Height) continue;
+
+                TileType tile = _grid.GetTile(gx, gy);
+                float tileWeight = tile switch
+                {
+                    TileType.Fungus => 1.4f,
+                    TileType.AcidSoil => 1.1f,
+                    TileType.DeadSoil => 0.25f,
+                    _ => 0f
+                };
+                if (tileWeight <= 0f) continue;
+
+                Vector2 tileWorld = _grid.GridToWorld(gx, gy);
+                Vector2 delta = Position - tileWorld;
+                float d2 = Mathf.Max(0.01f, delta.sqrMagnitude);
+                avoidance += delta.normalized * (tileWeight / d2);
+            }
+        }
+
+        foreach (var n in nearby)
+        {
+            if (n == null || n == this || n.IsDead || !n.IsInfected) continue;
+            Vector2 delta = Position - n.Position;
+            float d2 = Mathf.Max(0.04f, delta.sqrMagnitude);
+            if (d2 > _config.infectionAuraRadius * _config.infectionAuraRadius * 2.5f) continue;
+            float herdWeight = n.State == HerbivoreState.Infected_Herding ? 2.2f : 1.5f;
+            avoidance += delta.normalized * (herdWeight / d2);
+        }
+
+        return avoidance;
+    }
+
+    private Vector2 RefineHealthyRoute(Vector2 preferredForce, List<HerbivoreAgent> nearby)
+    {
+        if (preferredForce.sqrMagnitude < 0.0001f)
+            return preferredForce;
+
+        Vector2 baseDir = preferredForce.normalized;
+        float lookAhead = Mathf.Max(_config.tileSize * 1.6f, _config.baseSpeed * _config.tickInterval * 6f);
+        Vector2 bestDir = baseDir;
+        float bestRisk = EvaluateRouteRisk(baseDir, lookAhead, nearby);
+
+        for (int i = 1; i <= 6; i++)
+        {
+            float angle = 22.5f * i;
+            Vector2 left = Rotate(baseDir, angle);
+            float leftRisk = EvaluateRouteRisk(left, lookAhead, nearby);
+            if (leftRisk < bestRisk)
+            {
+                bestRisk = leftRisk;
+                bestDir = left;
+            }
+
+            Vector2 right = Rotate(baseDir, -angle);
+            float rightRisk = EvaluateRouteRisk(right, lookAhead, nearby);
+            if (rightRisk < bestRisk)
+            {
+                bestRisk = rightRisk;
+                bestDir = right;
+            }
+        }
+
+        return bestDir * preferredForce.magnitude;
+    }
+
+    private float EvaluateRouteRisk(Vector2 direction, float lookAhead, List<HerbivoreAgent> nearby)
+    {
+        if (direction.sqrMagnitude < 0.0001f) return float.MaxValue;
+        Vector2 dir = direction.normalized;
+        float risk = 0f;
+
+        for (int step = 1; step <= 3; step++)
+        {
+            float t = step / 3f;
+            Vector2 sample = Position + dir * lookAhead * t;
+            risk += SampleHazardRisk(sample, nearby) * (0.8f + t);
+        }
+
+        return risk;
+    }
+
+    private float SampleHazardRisk(Vector2 sampleWorld, List<HerbivoreAgent> nearby)
+    {
+        if (!_grid.IsInsideBoard(sampleWorld))
+            return 999f;
+
+        float risk = 0f;
+        TileType tile = _grid.GetTileAtWorld(sampleWorld);
+        risk += tile switch
+        {
+            TileType.Fungus => 9f,
+            TileType.AcidSoil => 6.5f,
+            TileType.DeadSoil => 1.2f,
+            TileType.FertileSoil => 0.35f,
+            TileType.Shelter => 0.1f,
+            _ => 0f
+        };
+
+        foreach (var n in nearby)
+        {
+            if (n == null || n.IsDead || !n.IsInfected) continue;
+            float dist = Vector2.Distance(sampleWorld, n.Position);
+            float threatRadius = _config.infectionAuraRadius * 1.25f;
+            if (dist >= threatRadius) continue;
+
+            float closeness = 1f - Mathf.Clamp01(dist / threatRadius);
+            float herdBonus = n.State == HerbivoreState.Infected_Herding ? 1.7f : 1f;
+            risk += closeness * 7f * herdBonus;
+        }
+
+        risk += EdgePressure(sampleWorld) * 4.5f;
+        return risk;
+    }
+
+    private float EdgePressure(Vector2 worldPos)
+    {
+        float halfW = _grid.Width * _config.tileSize * 0.5f;
+        float halfH = _grid.Height * _config.tileSize * 0.5f;
+        Vector2 center = _grid.transform.position;
+        float minX = center.x - halfW;
+        float maxX = center.x + halfW;
+        float minY = center.y - halfH;
+        float maxY = center.y + halfH;
+
+        float safeMargin = Mathf.Max(_config.tileSize * 2.2f, 0.1f);
+        float left = Mathf.Clamp01((safeMargin - (worldPos.x - minX)) / safeMargin);
+        float right = Mathf.Clamp01((safeMargin - (maxX - worldPos.x)) / safeMargin);
+        float bottom = Mathf.Clamp01((safeMargin - (worldPos.y - minY)) / safeMargin);
+        float top = Mathf.Clamp01((safeMargin - (maxY - worldPos.y)) / safeMargin);
+        return left + right + bottom + top;
+    }
+
+    private Vector2 AvoidBoardEdges()
+    {
+        float halfW = _grid.Width * _config.tileSize * 0.5f;
+        float halfH = _grid.Height * _config.tileSize * 0.5f;
+        Vector2 center = _grid.transform.position;
+        float minX = center.x - halfW;
+        float maxX = center.x + halfW;
+        float minY = center.y - halfH;
+        float maxY = center.y + halfH;
+        float margin = Mathf.Max(_config.tileSize * 2f, 0.1f);
+
+        Vector2 push = Vector2.zero;
+        float leftDist = Position.x - minX;
+        float rightDist = maxX - Position.x;
+        float bottomDist = Position.y - minY;
+        float topDist = maxY - Position.y;
+
+        if (leftDist < margin) push += Vector2.right * (1f - Mathf.Clamp01(leftDist / margin));
+        if (rightDist < margin) push += Vector2.left * (1f - Mathf.Clamp01(rightDist / margin));
+        if (bottomDist < margin) push += Vector2.up * (1f - Mathf.Clamp01(bottomDist / margin));
+        if (topDist < margin) push += Vector2.down * (1f - Mathf.Clamp01(topDist / margin));
+
+        return push;
+    }
+
+    private Vector2 ClampInsideBoard(Vector2 worldPos)
+    {
+        float halfW = _grid.Width * _config.tileSize * 0.5f;
+        float halfH = _grid.Height * _config.tileSize * 0.5f;
+        Vector2 center = _grid.transform.position;
+        float margin = Mathf.Max(_config.tileSize * 0.35f, 0.01f);
+
+        return new Vector2(
+            Mathf.Clamp(worldPos.x, center.x - halfW + margin, center.x + halfW - margin),
+            Mathf.Clamp(worldPos.y, center.y - halfH + margin, center.y + halfH - margin)
+        );
+    }
+
+    private static Vector2 Rotate(Vector2 v, float degrees)
+    {
+        float rad = degrees * Mathf.Deg2Rad;
+        float sin = Mathf.Sin(rad);
+        float cos = Mathf.Cos(rad);
+        return new Vector2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
     }
 
     private bool IsFungusNearby(int searchRadius)

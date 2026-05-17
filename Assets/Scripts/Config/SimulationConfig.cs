@@ -22,7 +22,7 @@ public class SimulationConfig : ScriptableObject
 
     [Header("Fungus")]
     [Tooltip("How many simulation ticks a fungus tile persists before decaying")]
-    public int fungusTileDurationTicks = 1000;
+    public int fungusTileDurationTicks = 2000;
 
     [Tooltip("Radius (in tiles) around a dead infected entity that spawns fungus")]
     public int deathFungusRadius = 2;
@@ -64,8 +64,16 @@ public class SimulationConfig : ScriptableObject
 
     [Header("Infection")]
     [Tooltip("Chance per tick of infecting a healthy herbivore on a fungus tile")]
-    [Range(1f, 2f)]
+    [Range(0f, 1f)]
     public float infectionChancePerTick = 0.009f;
+
+    [Tooltip("Chance per tick of infecting a healthy herbivore by close proximity to infected herbivores")]
+    [Range(0f, 1f)]
+    public float proximityInfectionChancePerTick = 0.0035f;
+
+    [Tooltip("Multiplier on infection aura radius for close-proximity infection checks")]
+    [Range(0.1f, 2f)]
+    public float proximityInfectionRadiusMultiplier = 0.45f;
 
     [Tooltip("Infection radius used by infected herd to corral others")]
     public float infectionAuraRadius = 3.5f;
@@ -152,7 +160,7 @@ public class SimulationConfig : ScriptableObject
 
     [Tooltip("Ticks between acid rain waves")]
     [Range(100, 10000)]
-    public int acidRainCycleTicks = 2000;
+    public int acidRainCycleTicks = 6000;
 
     [Tooltip("Ticks rain remains active once it starts")]
     [Range(20, 9000)]

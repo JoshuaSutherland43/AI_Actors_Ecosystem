@@ -31,6 +31,12 @@ public class SimulationBoard : MonoBehaviour
     public bool showSceneStatsOverlay = true;
     public bool showDecisionTreeOverlay = true;
 
+    [Header("Developer Brush Controls")]
+    [Min(0)]
+    public int developerFungusBrushRadiusTiles = 1;
+    [Min(0.25f)]
+    public float developerRainBrushRadiusTiles = 2f;
+
     // ── Simulation state ──────────────────────────
     private bool _running;
     private float _speed = 1f;
@@ -48,6 +54,7 @@ public class SimulationBoard : MonoBehaviour
     private Vector2 _acidRainFrontVelocity;
     private Vector2 _acidRainFrontDirection;
     private bool _acidRainFrontActive;
+    private bool _manualRainBrushActive;
 
     // ── Entities ──────────────────────────────────
     private List<HerbivoreAgent> _agents = new();
@@ -61,11 +68,11 @@ public class SimulationBoard : MonoBehaviour
     public SimStats Stats { get; private set; } = new();
     public bool IsPaused => !_running;
     public float Speed => _speed;
-    public bool IsAcidRainActive => _acidRainTicksRemaining > 0;
-    public int TicksUntilAcidRain => IsAcidRainActive ? 0 : Mathf.Max(0, _acidRainCycleTicksRemaining);
-    public float SecondsUntilAcidRain => TicksUntilAcidRain * config.tickInterval / Mathf.Max(0.01f, _speed);
-    public float SecondsRemainingInAcidRain => _acidRainTicksRemaining * config.tickInterval / Mathf.Max(0.01f, _speed);
-    public bool IsAcidRainImminent => config != null && config.enableAcidRain && !IsAcidRainActive && TicksUntilAcidRain <= config.acidRainWarningTicks;
+    public bool IsAcidRainActive => _manualRainBrushActive || _acidRainTicksRemaining > 0;
+    public int TicksUntilAcidRain => 0;
+    public float SecondsUntilAcidRain => 0f;
+    public float SecondsRemainingInAcidRain => IsAcidRainActive && config != null ? Mathf.Max(0f, config.tickInterval) : 0f;
+    public bool IsAcidRainImminent => false;
     public bool IsLandDestroyed => _isLandDestroyed;
 
     // ── Events ────────────────────────────────────
@@ -113,6 +120,7 @@ public class SimulationBoard : MonoBehaviour
         _acidRainFrontCenter = Vector2.zero;
         _acidRainFrontVelocity = Vector2.zero;
         _acidRainFrontDirection = Vector2.right;
+        _manualRainBrushActive = false;
 
         // Setup grid
         if (tileGrid == null || config == null || herbivorePrefab == null) return;
@@ -184,7 +192,12 @@ public class SimulationBoard : MonoBehaviour
     // ──────────────────────────────────────────────
     private void Update()
     {
-        if (TryGetPointerDown(out Vector2 pointerScreen))
+        bool wasManualRainActive = _manualRainBrushActive;
+        bool consumedByDeveloperPaint = HandleDeveloperPaintInput();
+        if (wasManualRainActive && !_manualRainBrushActive)
+            _lastRainEndRealtime = Time.realtimeSinceStartup;
+
+        if (!consumedByDeveloperPaint && TryGetPointerDown(out Vector2 pointerScreen))
             HandleClick(pointerScreen);
 
         if (!_running) return;
@@ -220,7 +233,7 @@ public class SimulationBoard : MonoBehaviour
                 queriesThisTick++;
             }
 
-        if (IsAcidRainActive)
+        if (_acidRainFrontActive)
         {
             AdvanceAcidRainFront();
             tileGrid.ApplyAcidRainFrontTick(
@@ -312,31 +325,9 @@ public class SimulationBoard : MonoBehaviour
 
     private void AdvanceAcidRainCycle()
     {
-        if (config == null || !config.enableAcidRain) return;
-
-        if (_acidRainTicksRemaining > 0)
-        {
-            _acidRainTicksRemaining--;
-            if (_acidRainTicksRemaining <= 0)
-            {
-                _acidRainCycleTicksRemaining = Mathf.Max(1, config.acidRainCycleTicks);
-                _lastRainEndRealtime = Time.realtimeSinceStartup;
-                _acidRainFrontActive = false;
-            }
-            return;
-        }
-
-        if (_acidRainCycleTicksRemaining <= Mathf.Max(1, config.acidRainWarningTicks))
-            EnsureInfectedShelteredBeforeRain();
-
-        _acidRainCycleTicksRemaining--;
-        if (_acidRainCycleTicksRemaining <= 0)
-        {
-            EnsureInfectedShelteredBeforeRain();
-            _acidRainTicksRemaining = Mathf.Max(1, config.acidRainDurationTicks);
-            _acidRainCycleTicksRemaining = 0;
-            BeginAcidRainFront();
-        }
+        _acidRainTicksRemaining = 0;
+        _acidRainCycleTicksRemaining = 0;
+        _acidRainFrontActive = false;
     }
 
     private void BeginAcidRainFront()
@@ -633,6 +624,73 @@ public class SimulationBoard : MonoBehaviour
         OnAgentSelected.Invoke(_selectedAgent);
     }
 
+    private bool HandleDeveloperPaintInput()
+    {
+        if (tileGrid == null || config == null)
+        {
+            _manualRainBrushActive = false;
+            return false;
+        }
+
+        bool leftPressed = IsPrimaryPointerPressed();
+        bool fungusHeld = IsFungusBrushModifierHeld();
+        bool rainHeld = IsRainBrushModifierHeld();
+
+        if (!leftPressed || (!fungusHeld && !rainHeld))
+        {
+            _manualRainBrushActive = false;
+            return false;
+        }
+
+        if (!TryGetPointerPosition(out Vector2 pointerScreen) || Camera.main == null)
+        {
+            _manualRainBrushActive = rainHeld;
+            return true;
+        }
+
+        Vector2 world = Camera.main.ScreenToWorldPoint(pointerScreen);
+        if (!tileGrid.IsInsideBoard(world))
+        {
+            _manualRainBrushActive = rainHeld;
+            return true;
+        }
+
+        if (fungusHeld)
+            tileGrid.SpawnDeathFungus(world, Mathf.Max(0, developerFungusBrushRadiusTiles));
+
+        if (rainHeld)
+        {
+            _manualRainBrushActive = true;
+            ApplyDeveloperRainBrush(world);
+        }
+        else
+        {
+            _manualRainBrushActive = false;
+        }
+
+        return true;
+    }
+
+    private void ApplyDeveloperRainBrush(Vector2 centerWorld)
+    {
+        float radiusWorld = Mathf.Max(config.tileSize * 0.5f, developerRainBrushRadiusTiles * config.tileSize);
+        tileGrid.ApplyAcidRainBrush(
+            centerWorld,
+            radiusWorld,
+            config.acidRainGrassDestroyChance,
+            config.acidRainFungusDestroyChance,
+            config.acidRainFertileDestroyChance);
+
+        foreach (var agent in _agents)
+        {
+            if (agent == null || agent.IsDead) continue;
+            if (tileGrid.IsShelterWorld(agent.Position)) continue;
+            if ((agent.Position - centerWorld).sqrMagnitude > radiusWorld * radiusWorld) continue;
+            if (Random.value <= config.acidRainExposedDeathChance)
+                agent.ForceEnvironmentalDeath("Manual acid rain exposure");
+        }
+    }
+
     // ──────────────────────────────────────────────
     // Public controls (called by UI buttons)
     // ──────────────────────────────────────────────
@@ -808,6 +866,72 @@ public class SimulationBoard : MonoBehaviour
             screenPos = Input.mousePosition;
             return true;
         }
+#endif
+
+        return false;
+    }
+
+    private static bool TryGetPointerPosition(out Vector2 screenPos)
+    {
+        screenPos = default;
+
+#if ENABLE_INPUT_SYSTEM
+        if (Mouse.current != null)
+        {
+            screenPos = Mouse.current.position.ReadValue();
+            return true;
+        }
+
+        if (Touchscreen.current != null)
+        {
+            screenPos = Touchscreen.current.primaryTouch.position.ReadValue();
+            return true;
+        }
+#endif
+
+#if ENABLE_LEGACY_INPUT_MANAGER
+        screenPos = Input.mousePosition;
+        return true;
+#endif
+
+        return false;
+    }
+
+    private static bool IsPrimaryPointerPressed()
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (Mouse.current != null && Mouse.current.leftButton.isPressed) return true;
+        if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed) return true;
+#endif
+
+#if ENABLE_LEGACY_INPUT_MANAGER
+        if (Input.GetMouseButton(0)) return true;
+#endif
+
+        return false;
+    }
+
+    private static bool IsFungusBrushModifierHeld()
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (Keyboard.current != null && Keyboard.current.fKey.isPressed) return true;
+#endif
+
+#if ENABLE_LEGACY_INPUT_MANAGER
+        if (Input.GetKey(KeyCode.F)) return true;
+#endif
+
+        return false;
+    }
+
+    private static bool IsRainBrushModifierHeld()
+    {
+#if ENABLE_INPUT_SYSTEM
+        if (Keyboard.current != null && Keyboard.current.rKey.isPressed) return true;
+#endif
+
+#if ENABLE_LEGACY_INPUT_MANAGER
+        if (Input.GetKey(KeyCode.R)) return true;
 #endif
 
         return false;

@@ -410,6 +410,79 @@ public class TileGrid : MonoBehaviour
         }
     }
 
+    public void ApplyAcidRainBrush(
+        Vector2 centerWorld,
+        float radiusWorld,
+        float grassToAcidChance,
+        float fungusToAcidChance,
+        float fertileToAcidChance)
+    {
+        if (_tiles == null || _tiles.Length == 0) return;
+
+        float radius = Mathf.Max(config.tileSize * 0.5f, radiusWorld);
+        float radiusSq = radius * radius;
+        float grassChance = Mathf.Clamp01(grassToAcidChance);
+        float fungusChance = Mathf.Clamp01(fungusToAcidChance);
+        float fertileChance = Mathf.Clamp01(fertileToAcidChance);
+
+        WorldToGrid(centerWorld - Vector2.one * radius, out int minX, out int minY);
+        WorldToGrid(centerWorld + Vector2.one * radius, out int maxX, out int maxY);
+
+        if (minX > maxX) (minX, maxX) = (maxX, minX);
+        if (minY > maxY) (minY, maxY) = (maxY, minY);
+
+        minX = Mathf.Clamp(minX, 0, Width - 1);
+        maxX = Mathf.Clamp(maxX, 0, Width - 1);
+        minY = Mathf.Clamp(minY, 0, Height - 1);
+        maxY = Mathf.Clamp(maxY, 0, Height - 1);
+
+        for (int y = minY; y <= maxY; y++)
+        {
+            for (int x = minX; x <= maxX; x++)
+            {
+                Vector2 tileWorld = GridToWorld(x, y);
+                if ((tileWorld - centerWorld).sqrMagnitude > radiusSq) continue;
+
+                int idx = y * Width + x;
+                switch (_tiles[idx])
+                {
+                    case TileType.Grass:
+                        if (_rng.NextDouble() < grassChance)
+                        {
+                            _tiles[idx] = TileType.AcidSoil;
+                            _dirty = true;
+                        }
+                        break;
+                    case TileType.Fungus:
+                        if (_rng.NextDouble() < fungusChance)
+                        {
+                            _tiles[idx] = TileType.AcidSoil;
+                            _fungusTtl[idx] = 0;
+                            _fungusSpreadRemaining[idx] = 0;
+                            _dirty = true;
+                        }
+                        break;
+                    case TileType.FertileSoil:
+                        if (_rng.NextDouble() < fertileChance)
+                        {
+                            _tiles[idx] = TileType.AcidSoil;
+                            _fertileTtl[idx] = 0;
+                            _dirty = true;
+                        }
+                        break;
+                }
+            }
+        }
+
+        if (_dirty)
+        {
+            RecalculateTileCounts();
+            RebuildPixels();
+            ApplyTexture();
+            _dirty = false;
+        }
+    }
+
     public void ConvertAllLivingGroundToAcid()
     {
         if (_tiles == null || _tiles.Length == 0) return;

@@ -1,0 +1,74 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 85638ca2f401ea147a1ff3f53fdbd321, type: 3}
+  m_Name: SimulationConfig
+  m_EditorClassIdentifier: Assembly-CSharp::SimulationConfig
+  gridWidth: 60
+  gridHeight: 40
+  tileSize: 0.5
+  initialHerbivoreCount: 44
+  maxHerbivores: 130
+  forceBrightYellowHerbivores: 1
+  herbivoreSizeMultiplier: 1.45
+  fungusTileDurationTicks: 760
+  deathFungusRadius: 2
+  fungusSpreadChance: 0.0018
+  fungusStrategicSpreadAttempts: 2
+  fungusStrategicSearchRadius: 3
+  fungusHerdAttractionWeight: 0.65
+  initialFungusPatches: 1
+  fungusBiomassThreshold: 1
+  fungusStarvationTtlPenalty: 2
+  fungusStarvationGraceFraction: 0.55
+  fungusSpreadEventsPerTile: 10
+  infectionChancePerTick: 0.012
+  infectionAuraRadius: 3.5
+  infectionDeathTicks: 620
+  infectionProgressionPerTick: 0.5
+  baseSpeed: 1.2
+  infectedSpeedMultiplier: 1.25
+  dyingSpeedMultiplier: 0.45
+  steeringSmoothing: 6
+  infectedTickTimeScale: 0.5
+  grassRegrowthChance: 0.0035
+  postRainGrassRegrowthMultiplier: 8
+  acidSoilRegrowthChance: 0.045
+  rainRecoveryDelaySeconds: 10
+  deadSoilRecoveryDelayTicks: 280
+  quadtreeCapacity: 4
+  quadtreeMaxDepth: 8
+  tickInterval: 0.05
+  enableBreeding: 1
+  breedingBaseChancePerTick: 0.06
+  breedingRange: 1.1
+  breedingMinAgeTicks: 70
+  breedingCooldownTicks: 120
+  breedingMaxHunger: 65
+  maxBirthsPerTick: 5
+  shelterClusterCount: 6
+  shelterClusterRadius: 3
+  initialShelterResidents: 10
+  enableAcidRain: 1
+  acidRainCycleTicks: 4200
+  acidRainDurationTicks: 520
+  acidRainWarningTicks: 260
+  acidRainEarlyAwarenessChance: 0.06
+  acidRainGrassDestroyChance: 0.25
+  acidRainFungusDestroyChance: 0.4
+  acidRainFertileDestroyChance: 0.22
+  acidRainExposedDeathChance: 0.12
+  acidRainFrontRadiusTiles: 6.5
+  acidRainFrontFeatherTiles: 2.5
+  acidRainFrontDriftTilesPerSecond: 1
+  ensureShelteredInfectedBeforeRain: 1
+  fertiliseRadius: 2
+  fertileSoilDurationTicks: 420

@@ -1,0 +1,19 @@
+// PATCH — Add to HerbivoreAgent.cs
+// Replace the SetSelected method with this version that drives SelectionHighlight:
+
+/*
+private SelectionHighlight _highlight;
+
+// In Initialise(), after _sr = GetComponent...:
+_highlight = GetComponentInChildren<SelectionHighlight>();
+
+public void SetSelected(bool sel)
+{
+    _selected = sel;
+    _sr.sortingOrder = sel ? 10 : 0;
+    if (_highlight != null) _highlight.SetVisible(sel);
+}
+*/
+
+// The full updated HerbivoreAgent is provided below.
+// Replace Assets/Scripts/Entities/HerbivoreAgent.cs with this version.

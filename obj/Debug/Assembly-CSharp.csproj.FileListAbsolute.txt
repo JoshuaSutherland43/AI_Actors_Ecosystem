@@ -1,0 +1,6 @@
+D:\1st Semester\VIrtual Reality - WVRV402\Projects\Latest_VR_A3\Temp\bin\Debug\Assembly-CSharp.dll
+D:\1st Semester\VIrtual Reality - WVRV402\Projects\Latest_VR_A3\Temp\bin\Debug\Assembly-CSharp.pdb
+D:\1st Semester\VIrtual Reality - WVRV402\Projects\Latest_VR_A3\obj\Debug\Assembly-CSharp.csproj.AssemblyReference.cache
+D:\1st Semester\VIrtual Reality - WVRV402\Projects\Latest_VR_A3\obj\Debug\Assembly-CSharp.csproj.CoreCompileInputs.cache
+D:\1st Semester\VIrtual Reality - WVRV402\Projects\Latest_VR_A3\obj\Debug\Assembly-CSharp.dll
+D:\1st Semester\VIrtual Reality - WVRV402\Projects\Latest_VR_A3\obj\Debug\Assembly-CSharp.pdb

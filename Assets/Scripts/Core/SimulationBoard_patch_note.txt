@@ -1,0 +1,7 @@
+// PATCH FILE — add this method to SimulationBoard.cs inside the class body.
+// It's already included in SimulationBoard.cs above; this file documents the addition.
+
+// public HerbivoreAgent GetSelectedAgent() => _selectedAgent;
+//
+// This is already present in SimulationBoard.cs.
+// No action needed.

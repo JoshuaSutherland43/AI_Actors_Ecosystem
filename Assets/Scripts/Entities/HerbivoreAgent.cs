@@ -51,7 +51,7 @@ public class HerbivoreAgent : MonoBehaviour
 
     private Vector2 _velocity;
     private Vector2 _steeringTarget;
-    private float _infectionTicks;
+    private int _infectionTicks;
     private float _wanderAngle;
     private float _freezeTimer;      // Timid freeze behaviour
     private int _breedCooldownTicks;
@@ -134,7 +134,7 @@ public class HerbivoreAgent : MonoBehaviour
             bool sheltered = CurrentTile == TileType.Shelter;
             bool pauseInfectionInShelter = sheltered;
             if (!pauseInfectionInShelter)
-                _infectionTicks += _config.infectionProgressionPerTick;
+                _infectionTicks++;
             Health = Mathf.Max(0f, 100f - (InfectionProgress * 100f));
 
             if (_infectionTicks >= _config.infectionDeathTicks)
@@ -146,11 +146,7 @@ public class HerbivoreAgent : MonoBehaviour
 
         // ── Hunger ───────────────────────────────
         Hunger = Mathf.Min(100f, Hunger + 0.13f);
-        if (CurrentTile == TileType.Grass)
-        {
-            Hunger = Mathf.Max(0f, Hunger - 0.45f);
-            _grid.ConsumeGrassAtWorld(Position);
-        }
+        if (CurrentTile == TileType.Grass) Hunger = Mathf.Max(0f, Hunger - 0.45f);
         if (CurrentTile == TileType.FertileSoil) Hunger = Mathf.Max(0f, Hunger - 0.35f);
         if (CurrentTile == TileType.Shelter)
             Hunger = Mathf.Max(0f, Hunger - (_board.IsAcidRainActive ? 0.2f : 0.08f));
@@ -188,17 +184,15 @@ public class HerbivoreAgent : MonoBehaviour
         float speed = _config.baseSpeed;
         if (IsInfected)
             speed *= InfectionProgress < 0.7f ? _config.infectedSpeedMultiplier : _config.dyingSpeedMultiplier;
-        float tickScale = IsInfected ? Mathf.Clamp(_config.infectedTickTimeScale, 0.1f, 1f) : 1f;
-
         _velocity = Vector2.Lerp(_velocity, force.normalized * speed, Time.deltaTime * _config.steeringSmoothing);
 
         // Clamp to board
-        Vector2 nextPos = Position + _velocity * (_config.tickInterval * tickScale);
+        Vector2 nextPos = Position + _velocity * _config.tickInterval;
         if (!_grid.IsInsideBoard(nextPos))
         {
             Vector2 boardCenter = (Vector2)_grid.transform.position;
             _velocity = (boardCenter - Position).normalized * speed;
-            nextPos = Position + _velocity * (_config.tickInterval * tickScale);
+            nextPos = Position + _velocity * _config.tickInterval;
         }
 
         transform.position = (Vector3)nextPos;
@@ -250,14 +244,13 @@ public class HerbivoreAgent : MonoBehaviour
             _lastInfectedNearby = infectedNearby;
             _lastThreatenedByHerd = false;
 
-            bool aggressiveHerding = InfectionProgress >= 0.2f;
-            State = infectedNearby >= 1 || aggressiveHerding
+            State = infectedNearby >= 2
                 ? HerbivoreState.Infected_Herding
                 : HerbivoreState.Infected_Wandering;
 
-            _lastDecisionReason = infectedNearby >= 1 || aggressiveHerding
-                ? "Infection behaviour engaged, herding nearby healthy animals."
-                : "No nearby infected support yet, staying in infected wandering mode.";
+            _lastDecisionReason = infectedNearby >= 2
+                ? "Detected 2+ infected neighbors, switching to herd behavior."
+                : "Not enough infected neighbors, staying in infected wandering mode.";
 
             if (InfectionProgress > 0.8f)
             {
@@ -378,7 +371,7 @@ public class HerbivoreAgent : MonoBehaviour
         {
             return
                 $"- Death check: if infection > 80%, switch to Dying (current {InfectionProgress * 100f:F0}%).\n" +
-                $"- Herd check: if infected neighbors >= 1 or infection matures, switch to Infected_Herding (current {_lastInfectedNearby}).\n" +
+                $"- Herd check: if infected neighbors >= 2, switch to Infected_Herding (current {_lastInfectedNearby}).\n" +
                 "- Otherwise continue infected wandering and seek fungal regions.";
         }
 
@@ -733,7 +726,7 @@ public class HerbivoreAgent : MonoBehaviour
                    "  +-- Is Infected? yes\n" +
                    $"      +-- Infection > 80%? {(InfectionProgress > 0.8f ? "yes" : "no")} ({InfectionProgress * 100f:F0}%)\n" +
                    $"      |   +-- yes -> Dying\n" +
-                   $"      +-- Infected neighbors >= 1 or infection matured? {(_lastInfectedNearby >= 1 || InfectionProgress >= 0.2f ? "yes" : "no")} ({_lastInfectedNearby})\n" +
+                   $"      +-- Infected neighbors >= 2? {(_lastInfectedNearby >= 2 ? "yes" : "no")} ({_lastInfectedNearby})\n" +
                    "          +-- yes -> Infected_Herding\n" +
                    "          +-- no  -> Infected_Wandering";
         }

@@ -176,21 +176,6 @@ public class TileGrid : MonoBehaviour
         RecalculateTileCounts();
     }
 
-    public bool ConsumeGrassAtWorld(Vector2 worldPos)
-    {
-        WorldToGrid(worldPos, out int x, out int y);
-        if (x < 0 || x >= Width || y < 0 || y >= Height) return false;
-
-        int idx = y * Width + x;
-        if (_tiles[idx] != TileType.Grass) return false;
-
-        _tiles[idx] = TileType.DeadSoil;
-        _deadSoilDelay[idx] = Mathf.Max(0, config.deadSoilRecoveryDelayTicks);
-        _dirty = true;
-        RecalculateTileCounts();
-        return true;
-    }
-
     public Vector2 GridToWorld(int x, int y)
     {
         float wx = transform.position.x - (Width * config.tileSize * 0.5f) + (x + 0.5f) * config.tileSize;

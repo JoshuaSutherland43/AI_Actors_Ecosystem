@@ -19,7 +19,7 @@ MonoBehaviour:
   maxHerbivores: 130
   forceBrightYellowHerbivores: 1
   herbivoreSizeMultiplier: 1.45
-  fungusTileDurationTicks: 760
+  fungusTileDurationTicks: 520
   deathFungusRadius: 2
   fungusSpreadChance: 0.0018
   fungusStrategicSpreadAttempts: 2
@@ -27,18 +27,16 @@ MonoBehaviour:
   fungusHerdAttractionWeight: 0.65
   initialFungusPatches: 1
   fungusBiomassThreshold: 1
-  fungusStarvationTtlPenalty: 2
-  fungusStarvationGraceFraction: 0.55
-  fungusSpreadEventsPerTile: 10
-  infectionChancePerTick: 0.012
+  fungusStarvationTtlPenalty: 3
+  fungusStarvationGraceFraction: 0.35
+  fungusSpreadEventsPerTile: 8
+  infectionChancePerTick: 0.006
   infectionAuraRadius: 3.5
   infectionDeathTicks: 620
-  infectionProgressionPerTick: 0.5
   baseSpeed: 1.2
   infectedSpeedMultiplier: 1.25
   dyingSpeedMultiplier: 0.45
   steeringSmoothing: 6
-  infectedTickTimeScale: 0.5
   grassRegrowthChance: 0.0035
   postRainGrassRegrowthMultiplier: 8
   acidSoilRegrowthChance: 0.045
@@ -58,10 +56,10 @@ MonoBehaviour:
   shelterClusterRadius: 3
   initialShelterResidents: 10
   enableAcidRain: 1
-  acidRainCycleTicks: 4200
-  acidRainDurationTicks: 520
+  acidRainCycleTicks: 1400
+  acidRainDurationTicks: 320
   acidRainWarningTicks: 260
-  acidRainEarlyAwarenessChance: 0.06
+  acidRainEarlyAwarenessChance: 0.12
   acidRainGrassDestroyChance: 0.25
   acidRainFungusDestroyChance: 0.4
   acidRainFertileDestroyChance: 0.22

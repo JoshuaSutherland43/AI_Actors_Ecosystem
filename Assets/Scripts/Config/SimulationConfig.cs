@@ -73,19 +73,11 @@ public class SimulationConfig : ScriptableObject
     [Tooltip("Ticks until an infected entity dies")]
     public int infectionDeathTicks = 600;
 
-    [Tooltip("Infection progression added per tick (0.5 = 50% slower progression)")]
-    [Range(0.1f, 3f)]
-    public float infectionProgressionPerTick = 0.5f;
-
     [Header("Movement")]
     public float baseSpeed = 1.2f;
     public float infectedSpeedMultiplier = 1.35f;   // infected move faster early
     public float dyingSpeedMultiplier = 0.4f;        // slow near death
     public float steeringSmoothing = 6f;             // higher = smoother turns
-
-    [Tooltip("Effective per-agent tick time scale for infected movement/behavior")]
-    [Range(0.1f, 1f)]
-    public float infectedTickTimeScale = 0.5f;
 
     [Header("Grass Regrowth")]
     [Tooltip("Chance per tick that a dead-soil tile becomes grass")]
